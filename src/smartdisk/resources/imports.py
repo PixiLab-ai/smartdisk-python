@@ -7,7 +7,15 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from .._util import DiskRef, b64, disk_slug_or_none, format_for_path, is_binary_format, prune
+from .._util import (
+    DiskRef,
+    b64,
+    disk_slug_or_none,
+    disk_uuid_or_none,
+    format_for_path,
+    is_binary_format,
+    prune,
+)
 from ..models import ChatImport, ContentList, DocumentImport, OcrResult, SyncCursor, UrlImport
 from ._base import Resource
 
@@ -63,16 +71,20 @@ class Imports(Resource):
         Each message is ``{"role", "content"}`` plus, optionally, ``"timestamp"``
         (RFC 3339, its original time) and ``"uuid"`` (its id in *your* system).
 
-        Given a **slug**, the disk is resolved or created in one call
-        (``POST /sd/import/chatml``) — a script then needs only a key and a slug.
-        Given a uuid or a :class:`~smartdisk.Disk`, the by-uuid route is used
-        (``POST /sd/disks/:uuid/import/chatml``).
+        Given a bare **slug**, the disk is resolved — or **created** — in the same
+        call (``POST /sd/import/chatml``), so a script needs only a key and a slug.
+        Given a uuid, or a :class:`~smartdisk.Disk` that already has one, the
+        by-uuid route is used (``POST /sd/disks/:uuid/import/chatml``).
         """
         rows = _messages(messages)
         if not rows:
             raise ValueError("imports.chat: no message carried a role — nothing to import")
 
-        slug = disk_slug_or_none(disk)
+        # A uuid is the precise identity and always wins. The by-slug route exists
+        # for the case where a script has only a slug — it resolves or CREATES the
+        # disk in the same call.
+        uuid = disk_uuid_or_none(disk)
+        slug = None if uuid else disk_slug_or_none(disk)
         body: dict[str, Any] = prune(
             {
                 "messages": rows,
