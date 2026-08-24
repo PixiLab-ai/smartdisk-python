@@ -10,6 +10,7 @@ def test_peel_export_tolerates_extra_envelope_keys():
     graph = '{"facts": [1], "edges": []}'
     wrapped = '{"data": {"facts": [1], "edges": []}, "result": "success", "time": 0.12, "token": "x"}'
     import json
+
     assert json.loads(peel_export(wrapped)) == json.loads(graph)
     # bare bodies still pass through byte-for-byte
     assert peel_export(graph) == graph
