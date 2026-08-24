@@ -8,6 +8,7 @@ while ``except SmartDiskError`` still catches everything.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 __all__ = [
@@ -222,6 +223,11 @@ def error_from_response(
         payload = inner
 
     code = str(payload.get("error") or "").strip()
+    if not code:
+        # Some deployments carry the machine code in "message" instead of "error".
+        candidate = str(payload.get("message") or "").strip()
+        if re.fullmatch(r"[a-z0-9_.-]{2,64}", candidate):
+            code = candidate
     detail = str(payload.get("detail") or "").strip()
 
     cls = _BY_CODE.get(code) or _BY_STATUS.get(status)

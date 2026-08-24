@@ -222,24 +222,53 @@ def test_retry_requeues_one_source(client, server, disk):
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/contents/4a7b/retry"
 
 
+def _listing(status: str = "processed", *, consolidating: bool = False) -> dict:
+    return {"contents": [{"uuid": "a", "status": status}], "consolidating": consolidating}
+
+
 def test_wait_polls_until_everything_is_processed(client, server, disk):
-    server.reply({"contents": [{"uuid": "a", "status": "processing"}], "consolidating": False})
-    server.reply({"contents": [{"uuid": "a", "status": "processed"}], "consolidating": False})
+    server.reply(_listing("processing"))
+    server.reply(_listing())
+    server.reply(_listing())
     listing = client.imports.wait_until_processed(disk, poll_interval=0)
-    assert len(server) == 2
+    assert len(server) == 3
     assert listing.all_processed
 
 
-def test_wait_ignores_consolidation_unless_asked(client, server, disk):
-    server.reply({"contents": [{"uuid": "a", "status": "processed"}], "consolidating": True})
+def test_wait_needs_two_consecutive_clear_polls(client, server, disk):
+    # Consolidation flaps between sub-passes, so one clear poll is not
+    # quiescence: a busy poll after a clear one resets the count.
+    server.reply(_listing())
+    server.reply(_listing(consolidating=True))
+    server.reply(_listing())
+    server.reply(_listing())
     client.imports.wait_until_processed(disk, poll_interval=0)
-    assert len(server) == 1
+    assert len(server) == 4
 
 
-def test_wait_can_also_wait_out_consolidation(client, server, disk):
-    server.reply({"contents": [{"uuid": "a", "status": "processed"}], "consolidating": True})
-    server.reply({"contents": [{"uuid": "a", "status": "processed"}], "consolidating": False})
-    client.imports.wait_until_processed(disk, poll_interval=0, wait_for_consolidation=True)
+def test_wait_does_not_return_on_a_single_clear_poll(client, server, disk):
+    # One clear poll, then a busy one. The wait has to still be running — which
+    # the third poll, and the failure it finds there, proves.
+    server.reply(_listing())
+    server.reply(_listing(consolidating=True))
+    server.reply({"contents": [{"uuid": "a", "name": "broken.pdf", "status": "failed"}]})
+    with pytest.raises(RuntimeError, match="broken.pdf"):
+        client.imports.wait_until_processed(disk, poll_interval=0)
+    assert len(server) == 3
+
+
+def test_wait_waits_out_consolidation_by_default(client, server, disk):
+    server.reply(_listing(consolidating=True))
+    server.reply(_listing())
+    server.reply(_listing())
+    client.imports.wait_until_processed(disk, poll_interval=0)
+    assert len(server) == 3
+
+
+def test_wait_can_be_told_to_ignore_consolidation(client, server, disk):
+    server.reply(_listing(consolidating=True))
+    server.reply(_listing(consolidating=True))
+    client.imports.wait_until_processed(disk, poll_interval=0, wait_for_consolidation=False)
     assert len(server) == 2
 
 
@@ -249,16 +278,21 @@ def test_wait_raises_on_a_failed_source(client, server, disk):
         client.imports.wait_until_processed(disk, poll_interval=0)
 
 
-def test_wait_times_out_rather_than_hanging(client, server, disk):
-    for _ in range(3):
-        server.reply({"contents": [{"uuid": "a", "status": "queued"}]})
-    with pytest.raises(TimeoutError):
+def test_wait_times_out_naming_how_many_are_still_pending(client, server, disk):
+    server.reply(
+        {
+            "contents": [{"uuid": "a", "status": "queued"}, {"uuid": "b", "status": "processed"}],
+            "consolidating": False,
+        }
+    )
+    with pytest.raises(TimeoutError, match=r"1 of 2 source\(s\) still pending"):
         client.imports.wait_until_processed(disk, poll_interval=0, timeout=-1)
 
 
 def test_wait_reports_progress_when_asked(client, server, disk):
-    server.reply({"contents": [{"uuid": "a", "status": "processing"}]})
-    server.reply({"contents": [{"uuid": "a", "status": "processed"}]})
+    server.reply(_listing("processing"))
+    server.reply(_listing())
+    server.reply(_listing())
     lines: list[str] = []
     client.imports.wait_until_processed(disk, poll_interval=0, on_progress=lines.append)
     assert lines == ["0/1 processed", "1/1 processed"]

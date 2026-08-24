@@ -94,10 +94,6 @@ the answer. Reach for `retrieve` when your own model will reason over the passag
 
 ## What you should know before building on it
 
-**Import is asynchronous.** Content moves `queued → processing → processed`, so a read
-straight after an import reads an empty disk. `client.imports.wait_until_processed(disk)`
-polls until it settles; `client.memory.contents(disk)` is the raw status view.
-
 **A conversation is an append-only thread; a document is a path.** Re-importing a
 conversation with the same `name` appends to the same thread (messages carrying a `uuid`
 are deduplicated individually). Re-importing a document at the same `(folder_path, name)`
@@ -144,6 +140,28 @@ context = client.retrieve(disk, query, session_id="chat-8412", dedup_turns=8)
 **Scope with `path`.** Contents live under a virtual folder path (imports land in
 `/imports`). Every retrieval and most tools take a `path` that scopes to a subtree — it is
 faster and sharper than searching everything.
+
+### Waiting for an import to land
+
+**Import is asynchronous, in two stages.** Each source moves `queued → processing →
+processed`, and then a disk-level pass consolidates the facts and supersedes whatever a
+newer source replaced — on a real server a twenty-message thread reaches `processed` in
+about a minute, and its supersessions land another 6–16 seconds after that. A read taken
+in between sees a half-built disk.
+
+`wait_until_processed` waits out both stages. Consolidation runs in sub-passes and the
+`consolidating` flag reads false *between* them, so one clear poll is not quiescence: the
+disk has to look clear on **two consecutive polls** before the call returns.
+
+```python
+client.imports.wait_until_processed(disk)  # 5s polls, 10min ceiling
+client.imports.wait_until_processed(disk, poll_interval=2, timeout=300)
+client.imports.wait_until_processed(disk, wait_for_consolidation=False)  # stage one only
+```
+
+It raises `RuntimeError` if a source ends `failed`, and `TimeoutError` — naming how many
+sources were still pending — if the deadline passes. `client.memory.contents(disk)` is the
+raw status view.
 
 ---
 
@@ -215,7 +233,7 @@ uuid, or a disk slug.
 | `ocr(path=/data=/image_b64=, format=)` | `POST /sd/ocr` |
 | `last(disk)` | `GET /sd/disks/:uuid/import/last` — the incremental-sync cursor |
 | `retry(disk, content_uuid)` | `POST /sd/disks/:uuid/contents/:cuuid/retry` |
-| `wait_until_processed(disk, ...)` | polls `GET /sd/disks/:uuid/contents` |
+| `wait_until_processed(disk, timeout=, poll_interval=, wait_for_consolidation=, on_progress=)` | polls `GET /sd/disks/:uuid/contents` until two consecutive clear reads |
 
 ### `client.retrieve(disk, query, ...)`
 

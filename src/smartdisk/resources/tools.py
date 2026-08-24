@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from .._util import DiskRef, prune
+from .._util import DiskRef, peel_export, prune
 from ..models import (
     ConsolidationRun,
     ConsolidationRuns,
@@ -99,16 +99,22 @@ class Tools(Resource):
         well. Only current facts are exported — superseded and retired ones are
         left behind.
 
-        This is the one endpoint that is **not** a JSON envelope: it is a file
-        download, so the rendered bytes come back as text, exactly as sent. Above
-        20,000 facts in scope it refuses with
+        This is a file download, not a JSON envelope: the rendered bytes come
+        back as text. The server sends them bare; some deployments wrap them in
+        the usual ``{"data": ..., "result": "success"}`` anyway, so the SDK
+        normalizes — an enveloped body is peeled, anything else is returned
+        exactly as sent. Either way what you get is the rendered file, so
+        ``json.loads()`` on a ``json`` export reaches ``facts`` directly, and a
+        ``turtle`` or ``csv`` export is untouched text.
+
+        Above 20,000 facts in scope it refuses with
         :class:`~smartdisk.TooLargeError` rather than truncating — narrow it
         with ``path``.
 
         ``GET /sd/disks/:uuid/export``
         """
         params = prune({"format": format, "include": include, "path": path})
-        return str(self._t.get(self._disk_url(disk, "export"), params=params, raw=True))
+        return peel_export(str(self._t.get(self._disk_url(disk, "export"), params=params, raw=True)))
 
     def hubs(self, disk: DiskRef, *, top: int | None = None, path: str | None = None) -> Hubs:
         """Which entities are central: weighted degree and PageRank over the graph.

@@ -93,6 +93,23 @@ def test_an_error_inside_the_envelope_is_still_found():
     assert error.code == "forbidden"
 
 
+def test_the_proxy_error_envelope_is_still_typed_by_its_code():
+    # A proxy realm answers {"data": null, "result": "error", "message": "<code>"}:
+    # the machine code sits at the envelope's top level, and `data` is a literal
+    # null rather than an object to reach into.
+    error = error_from_response(
+        404,
+        {"data": None, "result": "error", "message": "disk_not_found", "token": "err_proxy_service"},
+    )
+    assert isinstance(error, smartdisk.NotFoundError)
+    assert error.code == "disk_not_found"
+
+
+def test_a_human_sentence_in_message_is_not_mistaken_for_a_code():
+    error = error_from_response(500, {"message": "Something went badly wrong."})
+    assert error.code == ""
+
+
 def test_a_status_without_a_code_still_raises_something_typed(client, server, disk):
     server.fail(404)
     with pytest.raises(smartdisk.NotFoundError) as caught:

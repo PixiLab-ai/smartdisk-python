@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "smartdisk"
-version = "0.1.0"
+version = "0.1.1"
 description = "Official Python SDK for SmartDisk — a memory engine for conversations and documents, with grounded retrieval and citations."
 readme = "README.md"
 license = { text = "MIT" }

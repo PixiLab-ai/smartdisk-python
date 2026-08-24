@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import smartdisk
@@ -119,6 +121,34 @@ def test_export_defaults_to_the_servers_own_defaults(client, server, disk):
     server.text("{}")
     client.tools.export(disk)
     assert server.last.params == {}
+
+
+GRAPH = '{"disk": "d1", "facts": [{"uuid": "f1", "text": "Alex works at Northwind."}], "edges": []}'
+
+
+def test_export_returns_a_bare_graph_untouched(client, server, disk):
+    server.text(GRAPH, content_type="application/json")
+    body = client.tools.export(disk)
+    assert json.loads(body)["facts"][0]["uuid"] == "f1"
+
+
+def test_export_peels_an_envelope_a_proxy_wrapped_it_in(client, server, disk):
+    server.text(f'{{"data": {GRAPH}, "result": "success"}}', content_type="application/json")
+    body = client.tools.export(disk)
+    parsed = json.loads(body)
+    assert sorted(parsed) == ["disk", "edges", "facts"]
+    assert parsed["facts"][0]["uuid"] == "f1"
+
+
+def test_export_leaves_a_json_object_that_is_not_the_envelope_alone(client, server, disk):
+    # "data" without "result" is somebody's fact graph, not our envelope.
+    server.text('{"data": {"facts": []}}', content_type="application/json")
+    assert json.loads(client.tools.export(disk)) == {"data": {"facts": []}}
+
+
+def test_export_leaves_non_json_formats_alone(client, server, disk):
+    server.text("@prefix ex: <http://example.org/> .\n")
+    assert client.tools.export(disk, format="turtle").startswith("@prefix")
 
 
 # --- hubs --------------------------------------------------------------- #

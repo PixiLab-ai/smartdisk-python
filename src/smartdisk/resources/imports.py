@@ -23,6 +23,14 @@ __all__ = ["Imports"]
 
 IMPORT_TIMEOUT = 300.0
 
+#: Defaults for :meth:`Imports.wait_until_processed`.
+WAIT_TIMEOUT = 600.0
+WAIT_POLL_INTERVAL = 5.0
+#: How many consecutive clear polls end the wait. Consolidation runs in
+#: sub-passes and the flag reads false *between* them, so one clear poll is not
+#: quiescence — two consecutive ones are.
+WAIT_CLEAR_POLLS = 2
+
 Message = Mapping[str, Any]
 
 
@@ -252,30 +260,40 @@ class Imports(Resource):
         self,
         disk: DiskRef,
         *,
-        timeout: float = 1800.0,
-        poll_interval: float = 5.0,
-        wait_for_consolidation: bool = False,
+        timeout: float = WAIT_TIMEOUT,
+        poll_interval: float = WAIT_POLL_INTERVAL,
+        wait_for_consolidation: bool = True,
         on_progress: Any = None,
     ) -> ContentList:
-        """Block until every source on the disk reaches ``processed``.
+        """Block until the disk has settled: everything processed, nothing consolidating.
 
-        Import is asynchronous — content moves ``queued -> processing ->
-        processed`` — so anything that reads memory right after an import reads
-        an empty disk. This polls ``GET /sd/disks/:uuid/contents`` until it is
-        done.
+        Import is asynchronous in two stages. Per-source processing moves each
+        content ``queued -> processing -> processed``; then a disk-level pass
+        consolidates the facts and supersedes what the newer sources replaced.
+        Anything that reads memory before both are done reads a half-built disk.
 
-        Set ``wait_for_consolidation`` to also wait out the disk-level fact
-        dedup/supersession pass; that is what a benchmark wants and what an
-        interactive script usually does not (it is serialised server-side and can
-        sit behind other work).
+        The second stage is why this needs a quiescence window rather than a
+        single check: consolidation runs in sub-passes, and ``consolidating``
+        reads false *between* them. So the disk has to look clear on
+        :data:`WAIT_CLEAR_POLLS` consecutive polls — two — before this returns.
+
+        ``wait_for_consolidation=False`` waits for per-source processing only,
+        still on two consecutive clear polls. That is the faster, less complete
+        answer: facts are there, supersessions may not be.
 
         ``on_progress`` is called with the status line whenever it changes.
 
         Raises :class:`RuntimeError` if a source ends ``failed``, and
-        :class:`TimeoutError` if the deadline passes.
+        :class:`TimeoutError` — naming how many sources were still pending —
+        if the deadline passes.
         """
         started = time.monotonic()
         previous = ""
+        clear = 0
+        pending = 0
+        consolidating = False
+        line = "nothing polled yet"
+
         while True:
             listing = ContentList.from_dict(self._map(self._t.get(self._disk_url(disk, "contents"))))
             failed = listing.failed
@@ -284,16 +302,24 @@ class Imports(Resource):
                 raise RuntimeError(f"{len(failed)} source(s) failed to process: {names}")
 
             done = sum(1 for row in listing.contents if row.is_processed)
+            pending = len(listing.contents) - done
+            consolidating = listing.consolidating
             line = f"{done}/{len(listing.contents)} processed"
-            if listing.consolidating:
+            if consolidating:
                 line += ", consolidating"
             if on_progress is not None and line != previous:
                 on_progress(line)
                 previous = line
 
-            settled = listing.all_processed and (not wait_for_consolidation or not listing.consolidating)
-            if settled:
+            settled = listing.all_processed and (not wait_for_consolidation or not consolidating)
+            clear = clear + 1 if settled else 0
+            if clear >= WAIT_CLEAR_POLLS:
                 return listing
+
             if time.monotonic() - started > timeout:
-                raise TimeoutError(f"still {line} after {timeout:g}s")
+                tail = ", disk still consolidating" if consolidating else ""
+                raise TimeoutError(
+                    f"the disk had not settled after {timeout:g}s: "
+                    f"{pending} of {len(listing.contents)} source(s) still pending{tail}"
+                )
             time.sleep(poll_interval)

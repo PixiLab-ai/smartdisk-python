@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import re
 from pathlib import Path
 from typing import Any, Union
@@ -79,6 +80,31 @@ def is_binary_format(fmt: str) -> bool:
 
 def b64(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
+
+
+#: The REST envelope, exactly: nothing else rides alongside these two keys.
+_ENVELOPE_KEYS = frozenset({"data", "result"})
+
+
+def peel_export(body: str) -> str:
+    """Normalise an export body, whichever shape it arrived in.
+
+    The endpoint sends the rendered file bare — no envelope. Some deployments
+    (a proxy in front of the API, typically) wrap it in the standard
+    ``{"data": ..., "result": "success"}`` anyway. Peel that, and only that:
+    a body that is not exactly the envelope — a bare fact graph, turtle, csv —
+    comes back byte-for-byte as it arrived.
+    """
+    if not body.lstrip().startswith("{"):
+        return body
+    try:
+        parsed = json.loads(body)
+    except ValueError:
+        return body
+    if not isinstance(parsed, dict) or frozenset(parsed) != _ENVELOPE_KEYS:
+        return body
+    inner = parsed["data"]
+    return inner if isinstance(inner, str) else json.dumps(inner)
 
 
 def prune(body: dict[str, Any]) -> dict[str, Any]:
