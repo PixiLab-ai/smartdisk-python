@@ -8,8 +8,15 @@ import pytest
 
 
 def test_ask_posts_to_the_chat_route(client, server, disk):
-    server.reply({"answer": "We moved it to March.", "citations": [], "tokens_used": 900,
-                  "retrieve_ms": 320, "answer_ms": 1400})
+    server.reply(
+        {
+            "answer": "We moved it to March.",
+            "citations": [],
+            "tokens_used": 900,
+            "retrieve_ms": 320,
+            "answer_ms": 1400,
+        }
+    )
     answer = client.memory.ask(disk, "when did we move the launch?")
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/chat"
     assert server.last.json == {"query": "when did we move the launch?"}
@@ -25,15 +32,24 @@ def test_ask_passes_the_model_tier_and_language(client, server, disk):
 
 
 def test_ask_carries_prior_turns(client, server, disk):
-    history = [{"role": "user", "content": "and before that?"},
-               {"role": "assistant", "content": "it was February."}]
+    history = [
+        {"role": "user", "content": "and before that?"},
+        {"role": "assistant", "content": "it was February."},
+    ]
     client.memory.ask(disk, "why?", history=history)
     assert server.last.json["history"] == history
 
 
 def test_ask_takes_the_same_filters_as_retrieval(client, server, disk):
-    client.memory.ask(disk, "q", path="/research", categories=["health"], tags=["work"],
-                      since="2026-01-01T00:00:00Z", expand=True)
+    client.memory.ask(
+        disk,
+        "q",
+        path="/research",
+        categories=["health"],
+        tags=["work"],
+        since="2026-01-01T00:00:00Z",
+        expand=True,
+    )
     body = server.last.json
     assert body["path"] == "/research"
     assert body["categories"] == ["health"]
@@ -46,10 +62,22 @@ def test_ask_takes_the_same_filters_as_retrieval(client, server, disk):
 
 
 def test_contents_lists_sources_with_their_status(client, server, disk):
-    server.reply({"contents": [{"uuid": "4a7b", "name": "Planning call", "content_type": "chat",
-                                "status": "processed", "message_count": 24, "stale": True,
-                                "content_hash": "-2425632407680798700"}],
-                  "consolidating": False})
+    server.reply(
+        {
+            "contents": [
+                {
+                    "uuid": "4a7b",
+                    "name": "Planning call",
+                    "content_type": "chat",
+                    "status": "processed",
+                    "message_count": 24,
+                    "stale": True,
+                    "content_hash": "-2425632407680798700",
+                }
+            ],
+            "consolidating": False,
+        }
+    )
     listing = client.memory.contents(disk)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/contents"
     assert len(listing) == 1
@@ -59,10 +87,21 @@ def test_contents_lists_sources_with_their_status(client, server, disk):
 
 
 def test_facts_reads_the_derived_memory_view(client, server, disk):
-    server.reply({"facts": [{"text": "The launch is in March.", "category": "schedule",
-                             "reinforced_count": 2, "origin": "chat", "tags": ["launch"]}],
-                  "summary": "A planning thread.",
-                  "tags": [{"slug": "launch", "text": "launch", "uses": 5}]})
+    server.reply(
+        {
+            "facts": [
+                {
+                    "text": "The launch is in March.",
+                    "category": "schedule",
+                    "reinforced_count": 2,
+                    "origin": "chat",
+                    "tags": ["launch"],
+                }
+            ],
+            "summary": "A planning thread.",
+            "tags": [{"slug": "launch", "text": "launch", "uses": 5}],
+        }
+    )
     memory = client.memory.facts(disk)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/memory"
     assert memory.facts[0].origin == "chat"
@@ -71,34 +110,54 @@ def test_facts_reads_the_derived_memory_view(client, server, disk):
 
 
 def test_groups_reads_current_values_and_their_history(client, server, disk):
-    server.reply({
-        "groups": [{
-            "subject": "alex", "predicate": "works_at", "kind": "functional",
-            "current": [{"uuid": "c1", "text": "Alex works at Northwind Trading."}],
-            "history": [{"uuid": "h1", "text": "Alex works at Harbor Labs.",
-                         "invalidated": True, "close_kind": "superseded", "superseded_by": "c1"}],
-            "history_count": 1,
-        }],
-        "total_groups": 612, "ungrouped": 44,
-    })
+    server.reply(
+        {
+            "groups": [
+                {
+                    "subject": "alex",
+                    "predicate": "works_at",
+                    "kind": "functional",
+                    "current": [{"uuid": "c1", "text": "Alex works at Northwind Trading."}],
+                    "history": [
+                        {
+                            "uuid": "h1",
+                            "text": "Alex works at Harbor Labs.",
+                            "invalidated": True,
+                            "close_kind": "superseded",
+                            "superseded_by": "c1",
+                        }
+                    ],
+                    "history_count": 1,
+                }
+            ],
+            "total_groups": 612,
+            "ungrouped": 44,
+        }
+    )
     groups = client.memory.groups(disk)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/groups"
     assert groups.total_groups == 612
     assert groups.ungrouped == 44
     assert groups.truncated is True
     group = groups.groups[0]
-    assert group.current[0].close_kind == ""       # absent on a current fact
+    assert group.current[0].close_kind == ""  # absent on a current fact
     assert group.history[0].close_kind == "superseded"
     assert group.history[0].superseded_by == "c1"
 
 
 def test_subjects_returns_nodes_edges_and_its_own_truncation(client, server, disk):
-    server.reply({"subjects": [{"name": "alex", "category": "career", "facts": 118}],
-                  "edges": [{"subject": "alex", "predicate": "works_at",
-                             "object": "northwind", "weight": 3}],
-                  "subjects_total": 1284, "subjects_returned": 300,
-                  "edges_total": 3910, "edges_returned": 1500, "edges_cap": 1500,
-                  "truncated": True})
+    server.reply(
+        {
+            "subjects": [{"name": "alex", "category": "career", "facts": 118}],
+            "edges": [{"subject": "alex", "predicate": "works_at", "object": "northwind", "weight": 3}],
+            "subjects_total": 1284,
+            "subjects_returned": 300,
+            "edges_total": 3910,
+            "edges_returned": 1500,
+            "edges_cap": 1500,
+            "truncated": True,
+        }
+    )
     graph = client.memory.subjects(disk, limit=0)
     assert server.last.params["limit"] == "0"
     assert graph.subjects[0].facts == 118
@@ -114,9 +173,18 @@ def test_tags_can_be_scoped_to_a_folder(client, server, disk):
 
 
 def test_profile_and_index_are_both_parsed(client, server, disk):
-    server.reply({"profile": {"body": "## Identity", "headline": "one line",
-                              "facts_at_gen": 4213, "gen_count": 3, "hash": "749cf4a0"},
-                  "index": {"body": "Disk: 214 documents", "hash": "b03c11d2"}})
+    server.reply(
+        {
+            "profile": {
+                "body": "## Identity",
+                "headline": "one line",
+                "facts_at_gen": 4213,
+                "gen_count": 3,
+                "hash": "749cf4a0",
+            },
+            "index": {"body": "Disk: 214 documents", "hash": "b03c11d2"},
+        }
+    )
     view = client.memory.profile(disk)
     assert view.profile.gen_count == 3
     assert view.index.hash == "b03c11d2"
@@ -137,10 +205,18 @@ def test_regenerate_profile_posts(client, server, disk):
 
 
 def test_ecosystem_reports_its_cap(client, server, disk):
-    server.reply({"sources": [{"uuid": "s1", "name": "Planning call"}],
-                  "tags": [{"slug": "launch"}], "facts": [{"uuid": "f1", "text": "March."}],
-                  "links": {"source_fact": [["s1", "f1"]]},
-                  "facts_total": 4213, "facts_returned": 100, "facts_cap": 100, "truncated": True})
+    server.reply(
+        {
+            "sources": [{"uuid": "s1", "name": "Planning call"}],
+            "tags": [{"slug": "launch"}],
+            "facts": [{"uuid": "f1", "text": "March."}],
+            "links": {"source_fact": [["s1", "f1"]]},
+            "facts_total": 4213,
+            "facts_returned": 100,
+            "facts_cap": 100,
+            "truncated": True,
+        }
+    )
     eco = client.memory.ecosystem(disk, limit=0)
     assert server.last.params["limit"] == "0"
     assert eco.truncated and eco.facts_total == 4213
@@ -148,9 +224,21 @@ def test_ecosystem_reports_its_cap(client, server, disk):
 
 
 def test_graph_query_sends_q_and_depth(client, server, disk):
-    server.reply({"mode": "path", "query": "alex..northwind",
-                  "edges": [{"subject": "alex", "predicate": "works_at", "object": "northwind",
-                             "object_text": "Northwind Trading", "fact_uuid": "f1"}]})
+    server.reply(
+        {
+            "mode": "path",
+            "query": "alex..northwind",
+            "edges": [
+                {
+                    "subject": "alex",
+                    "predicate": "works_at",
+                    "object": "northwind",
+                    "object_text": "Northwind Trading",
+                    "fact_uuid": "f1",
+                }
+            ],
+        }
+    )
     result = client.memory.graph(disk, "alex..northwind", depth=4)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/graph-query"
     assert server.last.params == {"q": "alex..northwind", "depth": "4"}
@@ -241,13 +329,24 @@ def test_an_empty_alias_map_clears_it(client, server, disk):
 
 def test_remember_returns_the_new_fact_uuid(client, server, disk):
     server.reply({"fact_uuid": "f-123"})
-    uuid = client.memory.remember(disk, "Alex works at Northwind Trading.",
-                                  subject="alex", predicate="works_at", object="northwind",
-                                  category="career", priority=80)
+    uuid = client.memory.remember(
+        disk,
+        "Alex works at Northwind Trading.",
+        subject="alex",
+        predicate="works_at",
+        object="northwind",
+        category="career",
+        priority=80,
+    )
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/remember"
-    assert server.last.json == {"text": "Alex works at Northwind Trading.", "subject": "alex",
-                                "predicate": "works_at", "object": "northwind",
-                                "category": "career", "priority": 80}
+    assert server.last.json == {
+        "text": "Alex works at Northwind Trading.",
+        "subject": "alex",
+        "predicate": "works_at",
+        "object": "northwind",
+        "category": "career",
+        "priority": 80,
+    }
     assert uuid == "f-123"
 
 

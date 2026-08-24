@@ -10,13 +10,17 @@ import smartdisk
 
 
 def test_read_returns_a_document_body(client, server, disk):
-    server.reply({
-        "content": {"uuid": "7d2c", "name": "Q2 report", "content_type": "doc",
-                    "is_container": True},
-        "body": "# Q2 report\n\n...",
-        "sections": [{"uuid": "9f31", "name": "Revenue", "status": "processed"}],
-        "total": 412903, "offset": 0, "limit": 200, "truncated": True,
-    })
+    server.reply(
+        {
+            "content": {"uuid": "7d2c", "name": "Q2 report", "content_type": "doc", "is_container": True},
+            "body": "# Q2 report\n\n...",
+            "sections": [{"uuid": "9f31", "name": "Revenue", "status": "processed"}],
+            "total": 412903,
+            "offset": 0,
+            "limit": 200,
+            "truncated": True,
+        }
+    )
     source = client.tools.read(disk, "7d2c")
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/contents/7d2c"
     assert source.body.startswith("# Q2 report")
@@ -26,13 +30,25 @@ def test_read_returns_a_document_body(client, server, disk):
 
 
 def test_read_pages_a_conversation(client, server, disk):
-    server.reply({
-        "content": {"uuid": "4a7b", "name": "Planning call", "content_type": "chat"},
-        "messages": [{"uuid": "c2f8", "role": "user", "text": "What did we decide?",
-                      "sort_order": 0, "original_timestamp": "2026-05-31T08:00:00Z",
-                      "original_uuid": "your-message-id"}],
-        "total": 240, "offset": 200, "limit": 200, "truncated": True,
-    })
+    server.reply(
+        {
+            "content": {"uuid": "4a7b", "name": "Planning call", "content_type": "chat"},
+            "messages": [
+                {
+                    "uuid": "c2f8",
+                    "role": "user",
+                    "text": "What did we decide?",
+                    "sort_order": 0,
+                    "original_timestamp": "2026-05-31T08:00:00Z",
+                    "original_uuid": "your-message-id",
+                }
+            ],
+            "total": 240,
+            "offset": 200,
+            "limit": 200,
+            "truncated": True,
+        }
+    )
     source = client.tools.read(disk, "4a7b", offset=200, limit=200)
     assert server.last.params == {"offset": "200", "limit": "200"}
     assert source.is_chat
@@ -49,10 +65,25 @@ def test_reading_a_source_from_another_disk_is_a_not_found(client, server, disk)
 
 
 def test_grep_sends_the_pattern_in_the_query(client, server, disk):
-    server.reply({"hits": [{"content_uuid": "4a7b", "content_name": "Planning call",
-                            "content_type": "chat", "message_uuid": "c2f8", "sort_order": 12,
-                            "ts": "2026-05-31T08:04:00Z", "snippet": "...ERR_CONN_RESET..."}],
-                  "pattern": "ERR_[A-Z_]+", "path": "/", "limit": 50, "truncated": False})
+    server.reply(
+        {
+            "hits": [
+                {
+                    "content_uuid": "4a7b",
+                    "content_name": "Planning call",
+                    "content_type": "chat",
+                    "message_uuid": "c2f8",
+                    "sort_order": 12,
+                    "ts": "2026-05-31T08:04:00Z",
+                    "snippet": "...ERR_CONN_RESET...",
+                }
+            ],
+            "pattern": "ERR_[A-Z_]+",
+            "path": "/",
+            "limit": 50,
+            "truncated": False,
+        }
+    )
     result = client.tools.grep(disk, "ERR_[A-Z_]+", limit=50, path="/imports")
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/grep"
     assert server.last.params == {"pattern": "ERR_[A-Z_]+", "limit": "50", "path": "/imports"}
@@ -94,11 +125,27 @@ def test_export_defaults_to_the_servers_own_defaults(client, server, disk):
 
 
 def test_hubs_ranks_entities(client, server, disk):
-    server.reply({"hubs": [{"name": "alex", "category": "career", "facts": 118,
-                            "degree_in": 9, "degree_out": 47, "weighted_degree": 56,
-                            "pagerank": 0.0731}],
-                  "nodes": 1284, "edges": 3910, "top": 20, "hubs_total": 612,
-                  "truncated": True, "path": "/"})
+    server.reply(
+        {
+            "hubs": [
+                {
+                    "name": "alex",
+                    "category": "career",
+                    "facts": 118,
+                    "degree_in": 9,
+                    "degree_out": 47,
+                    "weighted_degree": 56,
+                    "pagerank": 0.0731,
+                }
+            ],
+            "nodes": 1284,
+            "edges": 3910,
+            "top": 20,
+            "hubs_total": 612,
+            "truncated": True,
+            "path": "/",
+        }
+    )
     hubs = client.tools.hubs(disk, top=20)
     assert server.last.params == {"top": "20"}
     assert len(hubs) == 1
@@ -116,14 +163,19 @@ def test_hubs_refuses_rather_than_truncating_a_huge_graph(client, server, disk):
 
 
 def test_lint_parses_every_section(client, server, disk):
-    server.reply({
-        "disk": "9c1e", "generated_at": "2026-08-23T11:02:41Z", "path": "/", "limit": 50,
-        "sections": {
-            "dirty_backlog": {"total": 42, "returned": 42, "items": [], "oldest_age_seconds": 913},
-            "fragmented_groups": {"total": 9, "returned": 9, "items": [], "min_facts": 3},
-        },
-        "totals": {"dirty_backlog": 42},
-    })
+    server.reply(
+        {
+            "disk": "9c1e",
+            "generated_at": "2026-08-23T11:02:41Z",
+            "path": "/",
+            "limit": 50,
+            "sections": {
+                "dirty_backlog": {"total": 42, "returned": 42, "items": [], "oldest_age_seconds": 913},
+                "fragmented_groups": {"total": 9, "returned": 9, "items": [], "min_facts": 3},
+            },
+            "totals": {"dirty_backlog": 42},
+        }
+    )
     report = client.tools.lint(disk, path="/research", limit=50)
     assert server.last.params == {"path": "/research", "limit": "50"}
     assert report.sections["dirty_backlog"].total == 42
@@ -133,8 +185,14 @@ def test_lint_parses_every_section(client, server, disk):
 
 def test_a_failed_lint_section_is_visible_without_failing_the_call(client, server, disk):
     # Each section is fenced: a 200 does not mean all seven succeeded.
-    server.reply({"sections": {"bare_relational": {"error": "scan timed out", "total": None},
-                               "dup_summaries": {"total": 3, "returned": 3, "items": []}}})
+    server.reply(
+        {
+            "sections": {
+                "bare_relational": {"error": "scan timed out", "total": None},
+                "dup_summaries": {"total": 3, "returned": 3, "items": []},
+            }
+        }
+    )
     report = client.tools.lint(disk)
     assert [section.name for section in report.failed_sections] == ["bare_relational"]
     assert report.sections["bare_relational"].ok is False
@@ -145,11 +203,25 @@ def test_a_failed_lint_section_is_visible_without_failing_the_call(client, serve
 
 
 def test_extract_preview_posts_text_and_stores_nothing(client, server, disk):
-    server.reply({"facts": [{"text": "Alex joined Northwind Trading in March 2022.",
-                             "subject": "alex", "predicate": "joined", "object": "northwind",
-                             "category": "career", "valid_from": "2022-03-01T00:00:00Z",
-                             "temporal_confidence": 0.9, "temporal_source_text": "in March 2022"}],
-                  "dropped": 2, "chars": 1841, "truncated": False})
+    server.reply(
+        {
+            "facts": [
+                {
+                    "text": "Alex joined Northwind Trading in March 2022.",
+                    "subject": "alex",
+                    "predicate": "joined",
+                    "object": "northwind",
+                    "category": "career",
+                    "valid_from": "2022-03-01T00:00:00Z",
+                    "temporal_confidence": 0.9,
+                    "temporal_source_text": "in March 2022",
+                }
+            ],
+            "dropped": 2,
+            "chars": 1841,
+            "truncated": False,
+        }
+    )
     preview = client.tools.extract_preview(disk, "Alex joined Northwind in March 2022.")
     assert server.last.method == "POST"
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/extract-preview"
@@ -165,9 +237,20 @@ def test_extract_preview_takes_an_alias_map(client, server, disk):
 
 
 def test_a_vague_date_is_reported_without_being_rounded_up(client, server, disk):
-    server.reply({"facts": [{"text": "Alex moved recently.", "valid_from": None,
-                             "temporal_confidence": 0.35, "temporal_source_text": "recently"}],
-                  "dropped": 0, "chars": 20})
+    server.reply(
+        {
+            "facts": [
+                {
+                    "text": "Alex moved recently.",
+                    "valid_from": None,
+                    "temporal_confidence": 0.35,
+                    "temporal_source_text": "recently",
+                }
+            ],
+            "dropped": 0,
+            "chars": 20,
+        }
+    )
     fact = client.tools.extract_preview(disk, "Alex moved recently.").facts[0]
     assert fact.valid_from is None
     assert fact.temporal_confidence == 0.35
@@ -177,10 +260,23 @@ def test_a_vague_date_is_reported_without_being_rounded_up(client, server, disk)
 
 
 def test_consolidation_runs_lists_counts_only(client, server, disk):
-    server.reply({"runs": [{"uuid": "e41a", "seed_fact_uuid": "f1", "duration_ms": 7104,
-                            "tier_counts": {"exact": 4, "lexical": 2, "llm": 1},
-                            "facts_closed": 6, "facts_rewritten": 1, "clusters": 3}],
-                  "returned": 1, "limit": 20})
+    server.reply(
+        {
+            "runs": [
+                {
+                    "uuid": "e41a",
+                    "seed_fact_uuid": "f1",
+                    "duration_ms": 7104,
+                    "tier_counts": {"exact": 4, "lexical": 2, "llm": 1},
+                    "facts_closed": 6,
+                    "facts_rewritten": 1,
+                    "clusters": 3,
+                }
+            ],
+            "returned": 1,
+            "limit": 20,
+        }
+    )
     runs = client.tools.consolidation_runs(disk, limit=20)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/consolidation/runs"
     assert server.last.params == {"limit": "20"}
@@ -189,8 +285,9 @@ def test_consolidation_runs_lists_counts_only(client, server, disk):
 
 
 def test_one_run_can_include_the_undo_plan(client, server, disk):
-    server.reply({"uuid": "e41a", "diff": {"seed": {}, "clusters": []},
-                  "plan": {"reopen": 6, "applicable": True}})
+    server.reply(
+        {"uuid": "e41a", "diff": {"seed": {}, "clusters": []}, "plan": {"reopen": 6, "applicable": True}}
+    )
     run = client.tools.consolidation_run(disk, "e41a", plan=True)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/consolidation/runs/e41a"
     assert server.last.params == {"plan": "1"}

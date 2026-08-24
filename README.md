@@ -36,7 +36,7 @@ once at creation. A key acts as its owner and reaches only that owner's disks.
 ```python
 from smartdisk import SmartDisk
 
-client = SmartDisk(api_key="sd_...")          # or set SMARTDISK_API_KEY
+client = SmartDisk(api_key="sd_...")  # or set SMARTDISK_API_KEY
 ```
 
 `base_url` (or `SMARTDISK_BASE`) points the client at a self-hosted server.
@@ -57,15 +57,19 @@ client = SmartDisk(api_key="sd_...")
 disk = client.disks.create(name="Support bot", slug="support-bot")
 
 # 1. import — a conversation, appended to a thread by name
-client.imports.chat(disk, name="ticket-4471", messages=[
-    {"role": "user", "content": "I'm on the Pro plan and I'd rather be emailed than called."},
-    {"role": "assistant", "content": "Noted — email only, and I've flagged the Pro plan."},
-])
+client.imports.chat(
+    disk,
+    name="ticket-4471",
+    messages=[
+        {"role": "user", "content": "I'm on the Pro plan and I'd rather be emailed than called."},
+        {"role": "assistant", "content": "Noted — email only, and I've flagged the Pro plan."},
+    ],
+)
 client.imports.wait_until_processed(disk)
 
 # 2. retrieve — ready-to-prompt context, no model in the loop
 context = client.retrieve(disk, "how does this customer want to be contacted?")
-print(context.block)          # numbered [1..n] passages for your own prompt
+print(context.block)  # numbered [1..n] passages for your own prompt
 print(context.citations[0].content_name)
 
 # 3. ask — the server retrieves, then writes one grounded answer
@@ -107,6 +111,8 @@ on each response as one prompt block that is byte-identical until its `hash` cha
 it at the end of your system prompt and re-inject only on a new hash.
 
 ```python
+cached_hash, cached_block = "", ""
+
 context = client.retrieve(disk, query)
 if context.stable and context.stable.hash != cached_hash:
     cached_hash, cached_block = context.stable.hash, context.stable.block
@@ -193,7 +199,7 @@ uuid, or a disk slug.
 
 | Method | Route |
 |---|---|
-| `chat(disk, messages, name=, folder_path=, persona=, source=, aliases=, disk_name=)` | `POST /sd/import/chatml` (slug) · `POST /sd/disks/:uuid/import/chatml` (uuid) |
+| `chat(disk, messages, name=, folder_path=, persona=, source=, aliases=, disk_name=)` | `POST /sd/import/chatml` (bare slug — resolves **or creates** the disk) · `POST /sd/disks/:uuid/import/chatml` (uuid) |
 | `document(disk, path=/body=/data=/body_b64=, name=, title=, folder_path=, source=, format=)` | `POST /sd/disks/:uuid/import/doc` |
 | `url(disk, url, name=)` | `POST /sd/disks/:uuid/import/url` |
 | `ocr(path=/data=/image_b64=, format=)` | `POST /sd/ocr` |
@@ -297,10 +303,11 @@ for hit in client.tools.grep(disk, r"ERR_[A-Z_]+", case_insensitive=False):
 **Teach it something directly, and un-teach it.**
 
 ```python
-fact = client.memory.remember(disk, "Alex works at Northwind Trading.",
-                              subject="alex", predicate="works_at", object="northwind")
+fact = client.memory.remember(
+    disk, "Alex works at Northwind Trading.", subject="alex", predicate="works_at", object="northwind"
+)
 client.memory.reprioritize(disk, fact, 90)
-client.memory.forget(disk, fact)      # a bitemporal close, not a delete
+client.memory.forget(disk, fact)  # a bitemporal close, not a delete
 ```
 
 **See what a source *would* teach it, before committing.** `extract_preview` runs the real

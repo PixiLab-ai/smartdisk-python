@@ -132,8 +132,9 @@ def test_a_result_with_passages_is_truthy(client, server, disk):
 
 
 def test_the_ledger_block_is_parsed_when_present(client, server, disk):
-    server.reply({**RESPONSE, "ledger": {"session_id": "chat-8412", "dedup_turns": 8,
-                                         "excluded": 37, "recorded": 24}})
+    server.reply(
+        {**RESPONSE, "ledger": {"session_id": "chat-8412", "dedup_turns": 8, "excluded": 37, "recorded": 24}}
+    )
     result = client.retrieve(disk, "q", session_id="chat-8412", dedup_turns=8)
     assert result.ledger.excluded == 37
     assert result.ledger.recorded == 24

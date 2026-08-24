@@ -50,8 +50,9 @@ def test_freshness_reports_what_the_summary_covered():
 
 
 def test_a_content_list_is_iterable_and_sized():
-    listing = ContentList.from_dict({"contents": [{"uuid": "a", "status": "processed"},
-                                                  {"uuid": "b", "status": "queued"}]})
+    listing = ContentList.from_dict(
+        {"contents": [{"uuid": "a", "status": "processed"}, {"uuid": "b", "status": "queued"}]}
+    )
     assert len(listing) == 2
     assert [row.uuid for row in listing] == ["a", "b"]
     assert listing.all_processed is False
@@ -62,8 +63,9 @@ def test_an_empty_disk_is_not_all_processed():
 
 
 def test_failed_rows_are_easy_to_find():
-    listing = ContentList.from_dict({"contents": [{"uuid": "a", "status": "failed"},
-                                                  {"uuid": "b", "status": "processed"}]})
+    listing = ContentList.from_dict(
+        {"contents": [{"uuid": "a", "status": "failed"}, {"uuid": "b", "status": "processed"}]}
+    )
     assert [row.uuid for row in listing.failed] == ["a"]
 
 
@@ -77,9 +79,15 @@ def test_a_missing_list_is_an_empty_list():
 
 
 def test_object_uuids_are_deduplicated_in_rank_order():
-    result = Retrieval.from_dict({"citations": [{"object_uuid": "a", "content_uuid": "c1"},
-                                                {"object_uuid": "b", "content_uuid": "c1"},
-                                                {"object_uuid": "a", "content_uuid": "c2"}]})
+    result = Retrieval.from_dict(
+        {
+            "citations": [
+                {"object_uuid": "a", "content_uuid": "c1"},
+                {"object_uuid": "b", "content_uuid": "c1"},
+                {"object_uuid": "a", "content_uuid": "c2"},
+            ]
+        }
+    )
     assert result.object_uuids == ["a", "b"]
     assert result.content_uuids == ["c1", "c2"]
 

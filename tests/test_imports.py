@@ -137,8 +137,13 @@ def test_document_refuses_no_content_at_all(client, server, disk):
 
 def test_document_reports_an_auto_detected_chat_export(client, server, disk):
     server.reply(
-        {"mode": "chat-export", "format": "claude-export", "conversations": 97,
-         "messages": 2281, "status": "queued"}
+        {
+            "mode": "chat-export",
+            "format": "claude-export",
+            "conversations": 97,
+            "messages": 2281,
+            "status": "queued",
+        }
     )
     result = client.imports.document(disk, body="{...}", name="conversations.json")
     assert result.is_chat_export
@@ -190,8 +195,15 @@ def test_ocr_refuses_two_sources(client, server):
 
 
 def test_last_reads_the_sync_cursor(client, server, disk):
-    server.reply({"content_uuid": "4a7b", "original_uuid": "m-9",
-                  "original_timestamp": "2026-05-31T08:00:00Z", "name": "chat", "empty": False})
+    server.reply(
+        {
+            "content_uuid": "4a7b",
+            "original_uuid": "m-9",
+            "original_timestamp": "2026-05-31T08:00:00Z",
+            "name": "chat",
+            "empty": False,
+        }
+    )
     cursor = client.imports.last(disk)
     assert server.last.suffix == f"/sd/disks/{disk.uuid}/import/last"
     assert cursor.empty is False
