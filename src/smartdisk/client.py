@@ -41,7 +41,7 @@ class SmartDisk:
     Args:
         api_key: Your key, minted on the API keys page of the web app. Falls back
             to ``SMARTDISK_API_KEY``.
-        base_url: Override for a self-hosted server. Falls back to
+        base_url: Override for a staging or test deployment. Falls back to
             ``SMARTDISK_BASE``, then the hosted API.
         timeout: Default request timeout in seconds. Individual calls raise it
             where the work is longer — retrieval, answers, imports.

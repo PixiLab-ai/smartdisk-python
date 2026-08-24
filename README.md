@@ -49,7 +49,7 @@ from smartdisk import SmartDisk
 client = SmartDisk(api_key="sd_...")  # or set SMARTDISK_API_KEY
 ```
 
-`base_url` (or `SMARTDISK_BASE`) points the client at a self-hosted server.
+`base_url` (or `SMARTDISK_BASE`) points the client at a staging or test deployment — the default is the hosted API, so you normally never set it.
 
 > Access is granted per account. If every call raises `AccessRequiredError`, the account
 > has not been enabled for SmartDisk yet — retrying will not fix it.
