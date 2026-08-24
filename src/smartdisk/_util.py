@@ -92,7 +92,8 @@ def peel_export(body: str) -> str:
     The endpoint sends the rendered file bare — no envelope. Some deployments
     (a proxy in front of the API, typically) wrap it in the standard
     ``{"data": ..., "result": "success"}`` anyway. Peel that, and only that:
-    a body that is not exactly the envelope — a bare fact graph, turtle, csv —
+    tolerating the incidental keys proxies add beside it (``time``, ``token``);
+    any body without both envelope keys — a bare fact graph, turtle, csv —
     comes back byte-for-byte as it arrived.
     """
     if not body.lstrip().startswith("{"):
@@ -101,7 +102,7 @@ def peel_export(body: str) -> str:
         parsed = json.loads(body)
     except ValueError:
         return body
-    if not isinstance(parsed, dict) or frozenset(parsed) != _ENVELOPE_KEYS:
+    if not isinstance(parsed, dict) or not _ENVELOPE_KEYS.issubset(parsed):
         return body
     inner = parsed["data"]
     return inner if isinstance(inner, str) else json.dumps(inner)
