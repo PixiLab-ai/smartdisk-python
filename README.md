@@ -6,7 +6,12 @@ engine. You give it conversations and documents; it organises them into a search
 source.
 
 - Full API reference: <https://smartdisk.pixilab.ai/docs>
-- Sibling SDKs: [smartdisk-mcp](https://github.com/PixiLab-ai/smartdisk-mcp) (Model Context Protocol server)
+- Sibling SDKs: [smartdisk-js](https://github.com/PixiLab-ai/smartdisk-js) ·
+  [smartdisk-go](https://github.com/PixiLab-ai/smartdisk-go) ·
+  [smartdisk-mcp](https://github.com/PixiLab-ai/smartdisk-mcp) (Model Context Protocol server)
+
+All three SDKs share the same four namespaces — `disks`, `imports`, `retrieve`, `memory`
+— so a quickstart in one language reads the same as a quickstart in another.
 
 ---
 
@@ -27,6 +32,11 @@ pip install -e ".[dev]"
 ```
 
 Python 3.10+. The only runtime dependency is `httpx`.
+
+When it does reach PyPI the distribution will be **`smartdisk`** and the import stays
+`import smartdisk`. The JavaScript SDK ships as
+[`@pixilab/smartdisk`](https://github.com/PixiLab-ai/smartdisk-js) — same library, same
+verbs, a scope in front of the name.
 
 ## Authenticate
 
